@@ -1,103 +1,248 @@
-import Image from "next/image";
+"use client";
+import React, { useState, useRef, useEffect } from "react";
 
-export default function Home() {
+const QUESTIONS = [
+  "Please introduce yourself.",
+  "Why are you interested in this position?",
+  "Describe a time you solved a problem.",
+  "What is your greatest strength?",
+  "Where do you see yourself in 5 years?",
+];
+
+// Add type declarations for SpeechRecognition
+interface WindowWithSpeechRecognition extends Window {
+  SpeechRecognition: typeof SpeechRecognition;
+  webkitSpeechRecognition: typeof SpeechRecognition;
+}
+declare var SpeechRecognition: any;
+
+export default function Interview() {
+  const [step, setStep] = useState(0);
+  const [recording, setRecording] = useState(false);
+  const [audioURL, setAudioURL] = useState<string | null>(null);
+  const [transcript, setTranscript] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [finished, setFinished] = useState(false);
+  const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recognitionRef = useRef<null | any>(null);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  // Store all answers for the interview
+  const [allAnswers, setAllAnswers] = useState<string[]>([]);
+  const [submitStatus, setSubmitStatus] = useState<string>('');
+  // Store candidate info
+  const [candidateName, setCandidateName] = useState('');
+  const [candidateId, setCandidateId] = useState('');
+  const [started, setStarted] = useState(false);
+
+  useEffect(() => {
+    let localStream: MediaStream | null = null;
+    if (started) {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
+        setVideoStream(stream);
+        localStream = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }).catch(() => {});
+    }
+    setSpeechSupported(!!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition);
+    return () => {
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [started]); // Only start video when interview starts
+
+  useEffect(() => {
+    if (videoRef.current && videoStream) {
+      videoRef.current.srcObject = videoStream;
+    }
+  }, [videoStream]);
+
+  const startRecording = async () => {
+    setTranscript('');
+    setAudioURL(null);
+    setRecording(true);
+    audioChunksRef.current = [];
+    // Start browser speech recognition
+    if (speechSupported) {
+      const win = window as any;
+      const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition;
+      const recognition = new SpeechRecognitionClass();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.continuous = true;
+      let fullTranscript = '';
+      recognition.onresult = (event: any) => {
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          fullTranscript += event.results[i][0].transcript + ' ';
+        }
+        setTranscript(fullTranscript.trim());
+      };
+      recognition.onerror = () => {
+        setTranscript('Could not transcribe audio.');
+      };
+      recognitionRef.current = recognition;
+      recognition.start();
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mediaRecorder = new MediaRecorder(stream);
+    mediaRecorderRef.current = mediaRecorder;
+    mediaRecorder.ondataavailable = (e) => {
+      audioChunksRef.current.push(e.data);
+    };
+    mediaRecorder.onstop = async () => {
+      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+      const url = URL.createObjectURL(audioBlob);
+      setAudioURL(url);
+      setLoading(false);
+    };
+    mediaRecorder.start();
+    setLoading(false);
+  };
+
+  const stopRecording = () => {
+    setRecording(false);
+    mediaRecorderRef.current?.stop();
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+  };
+
+  const reanswer = () => {
+    setTranscript("");
+    setAudioURL(null);
+    setRecording(false);
+  };
+
+  const nextQuestion = async () => {
+    if (step < QUESTIONS.length - 1) {
+      setAllAnswers([...allAnswers, transcript]);
+      setStep((prev) => prev + 1);
+      setTranscript('');
+      setAudioURL(null);
+      setRecording(false);
+    } else {
+      // Interview finished, save answers to Supabase
+      const finalAnswers = [...allAnswers, transcript];
+      setFinished(true);
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        setVideoStream(null);
+      }
+      // Save candidate info and answers
+      if (candidateName && candidateId) {
+        setSubmitStatus('Submitting interview...');
+        try {
+          const res = await fetch('/api/interview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ candidate: candidateName, candidateId, answers: finalAnswers })
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            setSubmitStatus('Interview submitted successfully!');
+          } else {
+            setSubmitStatus('Submission failed: ' + (data.error || 'Unknown error'));
+          }
+        } catch (err: any) {
+          setSubmitStatus('Submission failed: ' + (err.message || 'Unknown error'));
+        }
+      }
+    }
+  };
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-purple-100 p-8">
+      <div className="bg-white shadow-xl rounded-xl p-8 w-full max-w-lg flex flex-col items-center">
+        <h2 className="text-2xl font-bold mb-4 text-purple-700">AI Video Interview</h2>
+        {!started ? (
+          <form className="flex flex-col gap-4 w-full max-w-md" onSubmit={e => { e.preventDefault(); setStarted(true); }}>
+            <label className="text-gray-700 font-medium">
+              Candidate Name
+              <input type="text" className="border p-2 w-full rounded mt-1" value={candidateName} onChange={e => setCandidateName(e.target.value)} required />
+            </label>
+            <label className="text-gray-700 font-medium">
+              Candidate ID
+              <input type="text" className="border p-2 w-full rounded mt-1" value={candidateId} onChange={e => setCandidateId(e.target.value)} required />
+            </label>
+            <button type="submit" className="bg-purple-600 text-white px-6 py-2 rounded-lg font-semibold shadow hover:bg-purple-700 transition">Start Interview</button>
+          </form>
+        ) : (
+          <>
+            {started && (
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="mb-4 w-80 h-60 rounded-lg border bg-black"
+                style={{ backgroundColor: 'black' }}
+              />
+            )}
+            {!finished ? (
+              <>
+                <div className="mb-4 text-lg text-gray-700 font-medium">
+                  {QUESTIONS[step]}
+                </div>
+                <div className="flex gap-4 mb-4">
+                  {!recording && (
+                    <button
+                      onClick={startRecording}
+                      className="bg-purple-600 text-white px-6 py-2 rounded-lg font-semibold shadow hover:bg-purple-700 transition"
+                    >
+                      Start Answer
+                    </button>
+                  )}
+                  {recording && (
+                    <button
+                      onClick={stopRecording}
+                      className="bg-red-600 text-white px-6 py-2 rounded-lg font-semibold shadow hover:bg-red-700 transition"
+                    >
+                      Stop Answer
+                    </button>
+                  )}
+                </div>
+                {loading && (
+                  <div className="mb-4 text-gray-500">Processing...</div>
+                )}
+                {transcript && (
+                  <div className="mb-4 w-full">
+                    <label className="block text-gray-700 mb-1">Transcript (edit if needed):</label>
+                    <textarea
+                      className="border p-2 rounded w-full text-gray-900 bg-gray-100"
+                      rows={4}
+                      value={transcript}
+                      onChange={e => setTranscript(e.target.value)}
+                    />
+                  </div>
+                )}
+                {transcript && (
+                  <div className="flex gap-4 mb-4">
+                    <button onClick={reanswer} className="bg-yellow-500 text-white px-6 py-2 rounded-lg font-semibold shadow hover:bg-yellow-600 transition">Reanswer</button>
+                    <button onClick={nextQuestion} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold shadow hover:bg-blue-700 transition">Next Question</button>
+                  </div>
+                )}
+                {!speechSupported && (
+                  <div className="text-sm text-red-600 mt-2">
+                    Speech-to-text is not supported in this browser.
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-lg text-purple-700 font-bold">
+                Thank you! Your interview is complete.<br />
+                We appreciate your time and responses.<br />
+                <span className="block mt-4 text-base text-gray-700">{submitStatus}</span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </main>
   );
 }
