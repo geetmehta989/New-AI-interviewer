@@ -15,7 +15,6 @@ export default function Interview() {
   const [step, setStep] = useState(0);
   const [recording, setRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
-  const [loading, setLoading] = useState(false);
   const [finished, setFinished] = useState(false);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -58,15 +57,16 @@ export default function Interview() {
     setTranscript('');
     setRecording(true);
     if (speechSupported) {
-      const win = window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any };
-      const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition;
-      const recognition = new SpeechRecognitionClass();
+  // @ts-expect-error SpeechRecognition is not typed in TypeScript DOM lib
+  const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recognition = new SpeechRecognitionClass();
       recognition.lang = 'en-US';
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
       recognition.continuous = true;
       let fullTranscript = '';
-      recognition.onresult = (event: { resultIndex: number; results: { [key: number]: { [key: number]: { transcript: string } } } }) => {
+  // @ts-expect-error onresult property is missing from TypeScript DOM lib
+  recognition.onresult = (event) => {
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           fullTranscript += event.results[i][0].transcript + ' ';
         }
@@ -179,9 +179,6 @@ export default function Interview() {
                     </button>
                   )}
                 </div>
-                {loading && (
-                  <div className="mb-4 text-gray-500">Processing...</div>
-                )}
                 {transcript && (
                   <div className="mb-4 w-full">
                     <label className="block text-gray-700 mb-1">Transcript (edit if needed):</label>
