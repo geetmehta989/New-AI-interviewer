@@ -33,8 +33,8 @@ export async function POST(req: NextRequest) {
     };
     const res = await calendar.events.insert({
       calendarId: 'primary',
-      resource: event,
       conferenceDataVersion: 1,
+      resource: event
     });
     const meetLink = res.data.conferenceData?.entryPoints?.find((ep: { entryPointType: string; uri: string }) => ep.entryPointType === 'video')?.uri;
     return Response.json({ link: meetLink || 'No Meet link generated.' });
