@@ -9,25 +9,17 @@ const QUESTIONS = [
   "Where do you see yourself in 5 years?",
 ];
 
-// Add type declarations for SpeechRecognition
-interface WindowWithSpeechRecognition extends Window {
-  SpeechRecognition: typeof SpeechRecognition;
-  webkitSpeechRecognition: typeof SpeechRecognition;
-}
-declare var SpeechRecognition: any;
+// Removed unused type declarations and variables
 
 export default function Interview() {
   const [step, setStep] = useState(0);
   const [recording, setRecording] = useState(false);
-  const [audioURL, setAudioURL] = useState<string | null>(null);
   const [transcript, setTranscript] = useState("");
   const [loading, setLoading] = useState(false);
   const [finished, setFinished] = useState(false);
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const recognitionRef = useRef<null | any>(null);
+  const recognitionRef = useRef<null | unknown>(null);
   const [speechSupported, setSpeechSupported] = useState(false);
   // Store all answers for the interview
   const [allAnswers, setAllAnswers] = useState<string[]>([]);
@@ -48,13 +40,13 @@ export default function Interview() {
         }
       }).catch(() => {});
     }
-    setSpeechSupported(!!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition);
+    setSpeechSupported(!!(window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).SpeechRecognition || !!(window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).webkitSpeechRecognition);
     return () => {
       if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [started]); // Only start video when interview starts
+  }, [started]);
 
   useEffect(() => {
     if (videoRef.current && videoStream) {
@@ -64,12 +56,9 @@ export default function Interview() {
 
   const startRecording = async () => {
     setTranscript('');
-    setAudioURL(null);
     setRecording(true);
-    audioChunksRef.current = [];
-    // Start browser speech recognition
     if (speechSupported) {
-      const win = window as any;
+      const win = window as unknown as { SpeechRecognition?: any; webkitSpeechRecognition?: any };
       const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition;
       const recognition = new SpeechRecognitionClass();
       recognition.lang = 'en-US';
@@ -77,7 +66,7 @@ export default function Interview() {
       recognition.maxAlternatives = 1;
       recognition.continuous = true;
       let fullTranscript = '';
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event: { resultIndex: number; results: { [key: number]: { [key: number]: { transcript: string } } } }) => {
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           fullTranscript += event.results[i][0].transcript + ' ';
         }
@@ -89,33 +78,17 @@ export default function Interview() {
       recognitionRef.current = recognition;
       recognition.start();
     }
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mediaRecorder = new MediaRecorder(stream);
-    mediaRecorderRef.current = mediaRecorder;
-    mediaRecorder.ondataavailable = (e) => {
-      audioChunksRef.current.push(e.data);
-    };
-    mediaRecorder.onstop = async () => {
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
-      const url = URL.createObjectURL(audioBlob);
-      setAudioURL(url);
-      setLoading(false);
-    };
-    mediaRecorder.start();
-    setLoading(false);
   };
 
   const stopRecording = () => {
     setRecording(false);
-    mediaRecorderRef.current?.stop();
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      (recognitionRef.current as { stop: () => void }).stop();
     }
   };
 
   const reanswer = () => {
-    setTranscript("");
-    setAudioURL(null);
+    setTranscript('');
     setRecording(false);
   };
 
@@ -124,7 +97,6 @@ export default function Interview() {
       setAllAnswers([...allAnswers, transcript]);
       setStep((prev) => prev + 1);
       setTranscript('');
-      setAudioURL(null);
       setRecording(false);
     } else {
       // Interview finished, save answers to Supabase
@@ -149,8 +121,8 @@ export default function Interview() {
           } else {
             setSubmitStatus('Submission failed: ' + (data.error || 'Unknown error'));
           }
-        } catch (err: any) {
-          setSubmitStatus('Submission failed: ' + (err.message || 'Unknown error'));
+        } catch (err) {
+          setSubmitStatus('Submission failed: ' + ((err as Error).message || 'Unknown error'));
         }
       }
     }
