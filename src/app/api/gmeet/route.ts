@@ -34,9 +34,11 @@ export async function POST(req: NextRequest) {
     const res = await calendar.events.insert({
       calendarId: 'primary',
       conferenceDataVersion: 1,
-      resource: event
+      requestBody: event
     });
-    const meetLink = res.data.conferenceData?.entryPoints?.find((ep: { entryPointType: string; uri: string }) => ep.entryPointType === 'video')?.uri;
+    const meetLink = res.data.conferenceData?.entryPoints?.find(
+      (ep) => ep.entryPointType === 'video' && typeof ep.uri === 'string'
+    )?.uri;
     return Response.json({ link: meetLink || 'No Meet link generated.' });
   } catch {
     return Response.json({ link: 'Error creating Google Meet link.' }, { status: 500 });
