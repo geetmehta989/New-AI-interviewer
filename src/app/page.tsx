@@ -1,3 +1,31 @@
+// Minimal SpeechRecognition type for browser compatibility
+type SpeechRecognition = {
+  start: () => void;
+  stop: () => void;
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: { results: { [key: number]: { [key: number]: { transcript: string } } } }) => void) | null;
+  onerror: (() => void) | null;
+};
+
+declare global {
+  interface Window {
+    SpeechRecognition: { new (): SpeechRecognition };
+    webkitSpeechRecognition: { new (): SpeechRecognition };
+  }
+}
+// Global type declarations for browser SpeechRecognition
+declare global {
+  interface Window {
+    SpeechRecognition: {
+      new (): SpeechRecognition;
+    };
+    webkitSpeechRecognition: {
+      new (): SpeechRecognition;
+    };
+  }
+}
 "use client";
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
@@ -54,8 +82,8 @@ export default function Interview() {
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       setSpeechSupported(true);
-  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-  recognitionRef.current = new SpeechRecognition();
+  const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognitionRef.current = SpeechRecognitionCtor ? new SpeechRecognitionCtor() : null;
       if (recognitionRef.current) {
         recognitionRef.current.continuous = false;
         recognitionRef.current.interimResults = false;
