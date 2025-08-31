@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/utils/supabaseClient';
 
 export default function AdminDashboard() {
-  const [responses, setResponses] = useState<{ id: number; candidate: string; candidateId: string; answers: string[]; score?: string; feedback?: string }[]>([]);
+  const [responses, setResponses] = useState<any[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [score, setScore] = useState('');
   const [feedback, setFeedback] = useState('');
@@ -53,10 +53,36 @@ export default function AdminDashboard() {
               <li key={i} className="mb-1 text-gray-800 bg-gray-100 rounded px-2 py-1">Q{i+1}: {a}</li>
             ))}
           </ul>
-          <button className="bg-green-600 text-white px-4 py-1 rounded mb-2" onClick={handleEvaluate}>Get AI Feedback</button>
-          {feedback && <div className="mb-2 text-green-700">{feedback}</div>}
-          <input type="text" placeholder="Score" value={score} onChange={e => setScore(e.target.value)} className="border p-2 rounded mb-2 text-gray-900 bg-gray-100" />
-          <button className="bg-purple-600 text-white px-4 py-1 rounded" onClick={handleSaveScore}>Save Score</button>
+          {/* Show AI scorecard if available */}
+          {responses.find(r => r.id === selected)?.scorecard && (
+            (() => {
+              let score = null;
+              let feedback = '';
+              const raw = responses.find(r => r.id === selected)?.scorecard;
+              if (typeof raw === 'object' && raw !== null) {
+                score = raw.score;
+                feedback = raw.feedback;
+              } else {
+                try {
+                  const parsed = JSON.parse(raw);
+                  score = parsed.score;
+                  feedback = parsed.feedback;
+                } catch {
+                  // fallback: try to extract score and feedback from plain text
+                  const scoreMatch = /score\s*[:=]\s*(\d+)/i.exec(raw);
+                  score = scoreMatch ? scoreMatch[1] : '';
+                  feedback = raw;
+                }
+              }
+              return (
+                <div className="mb-4 p-3 bg-gray-100 rounded border">
+                  <div className="font-bold text-purple-700">AI Scorecard</div>
+                  <div className="text-lg font-bold text-green-700">Score: {score}/10</div>
+                  <div className="text-gray-800 mt-2">Feedback: {feedback}</div>
+                </div>
+              );
+            })()
+          )}
         </div>
       )}
     </div>
