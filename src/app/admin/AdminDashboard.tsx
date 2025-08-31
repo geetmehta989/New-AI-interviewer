@@ -5,8 +5,7 @@ import { supabase } from '@/utils/supabaseClient';
 export default function AdminDashboard() {
   const [responses, setResponses] = useState<any[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
-  const [score, setScore] = useState('');
-  const [feedback, setFeedback] = useState('');
+  // Removed unused score and feedback state
 
   useEffect(() => {
     async function fetchResponses() {
@@ -16,19 +15,7 @@ export default function AdminDashboard() {
     fetchResponses();
   }, []);
 
-  const handleEvaluate = () => {
-    setFeedback('AI Feedback: Candidate shows strong problem-solving skills.');
-    setScore('8/10');
-  };
-
-  const handleSaveScore = () => {
-    if (selected !== null) {
-      setResponses(responses.map(r => r.id === selected ? { ...r, score, feedback } : r));
-      setSelected(null);
-      setScore('');
-      setFeedback('');
-    }
-  };
+  // Removed unused handleEvaluate and handleSaveScore functions
 
   return (
     <div className="p-8">

@@ -71,7 +71,7 @@ export default function Interview() {
   const [candidateName, setCandidateName] = useState('');
   const [candidateId, setCandidateId] = useState('');
   const [generatedQuestions, setGeneratedQuestions] = useState<string[]>(QUESTIONS);
-  const [meetLink, setMeetLink] = useState('');
+  // Removed unused meetLink state
   const [started, setStarted] = useState(false);
   const [step, setStep] = useState(0);
   const [recording, setRecording] = useState(false);
