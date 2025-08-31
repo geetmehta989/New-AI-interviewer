@@ -26,7 +26,7 @@ export default function Interview() {
         setTranscript('');
         setTimeout(() => {
           try {
-            recognitionRef.current.start();
+            if (recognitionRef.current) recognitionRef.current.start();
           } catch {}
         }, 200);
     }
@@ -34,28 +34,40 @@ export default function Interview() {
   const stopRecording = () => {
     setRecording(false);
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+  if (recognitionRef.current) recognitionRef.current.stop();
     // No need to re-initialize recognition for next question
     }
   };
   // Speech recognition setup
-  const recognitionRef = useRef<any>(null);
+  // Inline type declarations for browser speech recognition
+  type SpeechRecognitionType = {
+    start: () => void;
+    stop: () => void;
+    continuous: boolean;
+    interimResults: boolean;
+    lang: string;
+    onresult: ((event: { results: { [key: number]: { [key: number]: { transcript: string } } } }) => void) | null;
+    onerror: (() => void) | null;
+  };
+  const recognitionRef = useRef<SpeechRecognitionType | null>(null);
 
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       setSpeechSupported(true);
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-      recognitionRef.current.lang = 'en-US';
-      recognitionRef.current.onresult = (event: any) => {
-        const result = event.results[0][0].transcript;
-        setTranscript(result);
-      };
-      recognitionRef.current.onerror = () => {
-        // Optionally handle error
-      };
+  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+  recognitionRef.current = new SpeechRecognition();
+      if (recognitionRef.current) {
+        recognitionRef.current.continuous = false;
+        recognitionRef.current.interimResults = false;
+        recognitionRef.current.lang = 'en-US';
+        recognitionRef.current.onresult = (event: { results: { [key: number]: { [key: number]: { transcript: string } } } }) => {
+          const result = event.results[0][0].transcript;
+          setTranscript(result);
+        };
+        recognitionRef.current.onerror = () => {
+          // Optionally handle error
+        };
+      }
     } else {
       setSpeechSupported(false);
     }
@@ -276,8 +288,8 @@ export default function Interview() {
                 {scorecard && (
                   <div className="mt-6 p-4 bg-gray-100 rounded-lg border">
                     <h3 className="text-xl font-bold mb-2 text-purple-700">AI Evaluation</h3>
-                    <div className="text-lg font-bold text-green-700">Score: {typeof scorecard === 'object' ? scorecard.score : JSON.parse(scorecard || '{}').score}/10</div>
-                    <div className="text-gray-800 mt-2">Feedback: {typeof scorecard === 'object' ? scorecard.feedback : JSON.parse(scorecard || '{}').feedback}</div>
+                    <div className="text-lg font-bold text-green-700">Score: {typeof scorecard === 'object' && scorecard !== null ? (scorecard as { score?: number }).score : (() => { try { return (JSON.parse(scorecard || '{}') as { score?: number }).score; } catch { return ''; } })()}/10</div>
+                    <div className="text-gray-800 mt-2">Feedback: {typeof scorecard === 'object' && scorecard !== null ? (scorecard as { feedback?: string }).feedback : (() => { try { return (JSON.parse(scorecard || '{}') as { feedback?: string }).feedback; } catch { return ''; } })()}</div>
                   </div>
                 )}
               </div>

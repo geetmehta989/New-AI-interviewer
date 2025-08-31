@@ -3,7 +3,15 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/utils/supabaseClient';
 
 export default function AdminDashboard() {
-  const [responses, setResponses] = useState<any[]>([]);
+  type InterviewResponse = {
+    id: number;
+    candidate: string;
+    candidateId: string;
+    answers: string[];
+    questions: string[];
+    scorecard?: { feedback: string; score: number } | string;
+  };
+  const [responses, setResponses] = useState<InterviewResponse[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   // Removed unused score and feedback state
 
@@ -27,7 +35,22 @@ export default function AdminDashboard() {
             <li key={r.id} className="py-2 flex justify-between items-center">
               <span>{r.candidate} ({r.candidateId})</span>
               <button className="bg-blue-600 text-white px-4 py-1 rounded" onClick={() => setSelected(r.id)}>Evaluate</button>
-              {r.score && <span className="ml-4 text-green-700 font-bold">Score: {r.score}</span>}
+              {r.scorecard && (
+                (() => {
+                  let score = '';
+                  const raw = r.scorecard ?? '';
+                  if (typeof raw === 'object' && raw !== null) {
+                    score = String((raw as { score?: number }).score ?? '');
+                  } else if (typeof raw === 'string') {
+                    try {
+                      score = String(JSON.parse(raw || '{}').score ?? '');
+                    } catch {
+                      score = '';
+                    }
+                  }
+                  return score ? <span className="ml-4 text-green-700 font-bold">Score: {score}</span> : null;
+                })()
+              )}
             </li>
           ))}
         </ul>
@@ -51,14 +74,14 @@ export default function AdminDashboard() {
                 feedback = raw.feedback;
               } else {
                 try {
-                  const parsed = JSON.parse(raw);
+                  const parsed = JSON.parse(raw || '{}');
                   score = parsed.score;
                   feedback = parsed.feedback;
                 } catch {
                   // fallback: try to extract score and feedback from plain text
-                  const scoreMatch = /score\s*[:=]\s*(\d+)/i.exec(raw);
+                  const scoreMatch = /score\s*[:=]\s*(\d+)/i.exec(raw || '');
                   score = scoreMatch ? scoreMatch[1] : '';
-                  feedback = raw;
+                  feedback = raw || '';
                 }
               }
               return (
