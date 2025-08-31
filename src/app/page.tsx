@@ -1,4 +1,5 @@
 "use client";
+
 // Minimal SpeechRecognition type for browser compatibility
 type SpeechRecognition = {
   start: () => void;
@@ -27,7 +28,7 @@ declare global {
     };
   }
 }
-"use client";
+
 import React, { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import { supabase } from '@/utils/supabaseClient';
