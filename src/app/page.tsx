@@ -1,3 +1,4 @@
+"use client";
 // Minimal SpeechRecognition type for browser compatibility
 type SpeechRecognition = {
   start: () => void;
